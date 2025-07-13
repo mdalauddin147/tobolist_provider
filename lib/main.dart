@@ -1,16 +1,16 @@
  import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
- 
+// ----------------------- Models ------------------------
 
-class TodoModel {
+class MilestoneModel {
   final String title;
   final String category;
   final DateTime createdAt;
   final DateTime reminderTime;
   bool isCompleted;
 
-  TodoModel({
+  MilestoneModel({
     required this.title,
     required this.category,
     required this.createdAt,
@@ -19,42 +19,63 @@ class TodoModel {
   });
 }
 
- 
+// ------------------- Provider Logic ---------------------
 
-class TodoHandlerProvider with ChangeNotifier {
-  final List<TodoModel> _todos = List.generate(
+class MilestoneHandlerProvider with ChangeNotifier {
+  final List<MilestoneModel> _milestones = List<MilestoneModel>.generate(
     5,
-    (index) => TodoModel(
-      title: 'Task $index',
-      category: 'Category ${index % 2}',
+    (int index) => MilestoneModel(
+      title:
+          'Milestone ${index + 1}:  Give each milestone a target completion date',
+      category: 'Project ${index % 2 + 1}',
       createdAt: DateTime.now().subtract(Duration(days: index)),
       reminderTime: DateTime.now().add(Duration(hours: index + 1)),
+      isCompleted: index % 3 == 0, // Some milestones are completed initially
     ),
   );
 
-  List<TodoModel> get todos => _todos;
+  String _searchQuery = '';
 
-  Future<void> addTask(TodoModel todoModel) async {
-    _todos.add(todoModel);
+  List<MilestoneModel> get milestones {
+    if (_searchQuery.isEmpty) return _milestones;
+    return _milestones
+        .where((MilestoneModel milestone) =>
+            milestone.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            milestone.category.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+  }
+
+  void updateSearchQuery(String query) {
+    _searchQuery = query;
     notifyListeners();
   }
 
-  Future<void> completeTask({required int index}) async {
-    if (index >= 0 && index < _todos.length) {
-      _todos[index].isCompleted = true;
+  Future<void> addMilestone(MilestoneModel milestoneModel) async {
+    _milestones.insert(0, milestoneModel); // Add at the top
+    notifyListeners();
+  }
+
+  Future<void> completeMilestone({required int index}) async {
+    // Get the milestone from the currently filtered list
+    final MilestoneModel milestoneToComplete = milestones[index];
+    // Find the corresponding milestone in the main list and update its status
+    final int originalIndex = _milestones.indexOf(milestoneToComplete);
+    if (originalIndex != -1) {
+      _milestones[originalIndex].isCompleted = true;
       notifyListeners();
     }
   }
 
-  Future<void> deleteTask(int index) async {
-    if (index >= 0 && index < _todos.length) {
-      _todos.removeAt(index);
-      notifyListeners();
-    }
+  Future<void> deleteMilestone(int index) async {
+    // Get the milestone from the currently filtered list
+    final MilestoneModel milestoneToDelete = milestones[index];
+    // Remove the corresponding milestone from the main list
+    _milestones.remove(milestoneToDelete);
+    notifyListeners();
   }
 }
 
- 
+// --------------------- UI Helper ------------------------
 
 class PopupMenuHelper {
   static Widget buildPopupMenu(
@@ -65,8 +86,9 @@ class PopupMenuHelper {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert),
       onSelected: onSelected,
-      itemBuilder: (_) => optionsList
-          .map((opt) => PopupMenuItem<String>(
+      itemBuilder: (BuildContext _) => optionsList
+          .map<PopupMenuItem<String>>((Map<String, String> opt) =>
+              PopupMenuItem<String>(
                 value: opt.keys.first,
                 child: Text(opt.values.first),
               ))
@@ -75,7 +97,7 @@ class PopupMenuHelper {
   }
 }
 
- 
+// -------------------- Utility Functions -----------------
 
 String formatDateTimeToString(DateTime dateTime) {
   return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
@@ -85,140 +107,48 @@ String formatTimeFromDateTime(DateTime dateTime) {
   return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
 }
 
- 
+// ----------------------- Main UI ------------------------
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => TodoHandlerProvider(),
-      child: const MaterialApp(
+    ChangeNotifierProvider<MilestoneHandlerProvider>(
+      create: (BuildContext context) => MilestoneHandlerProvider(),
+      builder: (BuildContext context, Widget? child) => const MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: TodoListScreen(),
+        home: MilestonePlannerScreen(),
       ),
     ),
   );
 }
 
-class TodoListScreen extends StatelessWidget {
-  const TodoListScreen({super.key});
+class MilestonePlannerScreen extends StatefulWidget {
+  const MilestonePlannerScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final todoProvider = Provider.of<TodoHandlerProvider>(context);
-    final todos = todoProvider.todos;
+  State<MilestonePlannerScreen> createState() => _MilestonePlannerScreenState();
+}
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Todo List')),
-      body: ListView.builder(
-        itemCount: todos.length,
-        itemBuilder: (context, index) {
-          final todo = todos[index];
-          final isCompleted = todo.isCompleted;
+class _MilestonePlannerScreenState extends State<MilestonePlannerScreen> {
+  final TextEditingController _searchController = TextEditingController();
 
-          return Container(
-            margin: const EdgeInsets.all(6),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            decoration: BoxDecoration(
-              border: Border.all(),
-              color: isCompleted ? Colors.blueAccent.shade100 : Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black26,
-                  offset: Offset(1.5, 2),
-                  spreadRadius: 1,
-                  blurRadius: 4,
-                )
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const CircleAvatar(
-                      backgroundColor: Colors.redAccent,
-                      radius: 8,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(todo.category),
-                    const Spacer(),
-                    PopupMenuHelper.buildPopupMenu(
-                      context,
-                      onSelected: (value) async {
-                        switch (value) {
-                          case "complete":
-                            await todoProvider.completeTask(index: index);
-                            break;
-                          case "delete":
-                            await todoProvider.deleteTask(index);
-                            break;
-                        }
-                      },
-                      optionsList: [
-                        if (!isCompleted) {"complete": "Complete"},
-                        {"delete": "Delete"}
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      todo.title,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w500,
-                        decoration:
-                            isCompleted ? TextDecoration.lineThrough : null,
-                      ),
-                    ),
-                    const Icon(Icons.flag, color: Colors.redAccent),
-                  ],
-                ),
-                const Divider(),
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_month_rounded,
-                        color: Colors.black54),
-                    const SizedBox(width: 8),
-                    Text(formatDateTimeToString(todo.createdAt)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.timelapse_rounded,
-                        color: Colors.black54),
-                    const SizedBox(width: 8),
-                    Text(formatTimeFromDateTime(todo.reminderTime)),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddTaskDialog(context),
-        child: const Icon(Icons.add),
-      ),
-    );
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
-  void _showAddTaskDialog(BuildContext context) {
-    final titleController = TextEditingController();
-    final categoryController = TextEditingController();
+  void _showAddMilestoneDialog(BuildContext context) {
+    final TextEditingController titleController = TextEditingController();
+    final TextEditingController categoryController = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (_) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Add New Task'),
+          title: const Text('Add New Milestone'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
+            children: <Widget>[
               TextField(
                 controller: titleController,
                 decoration: const InputDecoration(labelText: 'Title'),
@@ -229,29 +159,246 @@ class TodoListScreen extends StatelessWidget {
               ),
             ],
           ),
-          actions: [
+          actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
                 if (titleController.text.isNotEmpty &&
                     categoryController.text.isNotEmpty) {
-                  final newTask = TodoModel(
+                  final MilestoneModel newMilestone = MilestoneModel(
                     title: titleController.text,
                     category: categoryController.text,
                     createdAt: DateTime.now(),
                     reminderTime: DateTime.now().add(const Duration(hours: 1)),
                   );
 
-                  Provider.of<TodoHandlerProvider>(context, listen: false)
-                      .addTask(newTask);
+                  Provider.of<MilestoneHandlerProvider>(dialogContext, listen: false)
+                      .addMilestone(newMilestone);
 
-                  Navigator.pop(context);
+                  Navigator.pop(dialogContext);
                 }
               },
               child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showMilestoneDetailsDialog(BuildContext context, MilestoneModel milestone) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(milestone.title),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Category: ${milestone.category}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                    'Created At: ${formatDateTimeToString(milestone.createdAt)} at ${formatTimeFromDateTime(milestone.createdAt)}'),
+                Text(
+                    'Reminder Time: ${formatDateTimeToString(milestone.reminderTime)} at ${formatTimeFromDateTime(milestone.reminderTime)}'),
+                Text('Status: ${milestone.isCompleted ? 'Completed' : 'Pending'}'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final MilestoneHandlerProvider milestoneProvider =
+        Provider.of<MilestoneHandlerProvider>(context);
+    final List<MilestoneModel> milestones = milestoneProvider.milestones;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Milestone Planner'),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              showSearchBar(context);
+            },
+          )
+        ],
+      ),
+      body: milestones.isEmpty
+          ? const Center(child: Text('No milestones found'))
+          : ListView.builder(
+              itemCount: milestones.length,
+              itemBuilder: (BuildContext listContext, int index) {
+                final MilestoneModel milestone = milestones[index];
+                final bool isCompleted = milestone.isCompleted;
+
+                return Card(
+                  elevation: 4,
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: isCompleted
+                      ? Colors.grey.shade100
+                      : Colors.white, // Subtle color change for completed
+                  child: InkWell(
+                    onTap: () => _showMilestoneDetailsDialog(listContext, milestone),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          // Milestone Title (moved to top)
+                          Text(
+                            milestone.title,
+                            style: TextStyle(
+                              fontSize: 22, // Slightly larger
+                              fontWeight: FontWeight.bold,
+                              decoration: isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: isCompleted ? Colors.grey : Colors.black,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2, // Allow title to wrap
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: <Widget>[
+                              // Category Chip
+                              Chip(
+                                label: Text(
+                                  milestone.category,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                avatar: const Icon(Icons.label_outline,
+                                    size: 16),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              const Spacer(),
+                              // Completion indicator (checkmark if completed)
+                              if (isCompleted)
+                                const Padding(
+                                  padding: EdgeInsets.only(right: 8.0),
+                                  child: Icon(Icons.check_circle_outline,
+                                      color: Colors.green),
+                                ),
+                              // PopupMenuHelper
+                              PopupMenuHelper.buildPopupMenu(
+                                listContext,
+                                onSelected: (String value) async {
+                                  switch (value) {
+                                    case "complete":
+                                      await Provider.of<MilestoneHandlerProvider>(
+                                              listContext,
+                                              listen: false)
+                                          .completeMilestone(index: index);
+                                      break;
+                                    case "delete":
+                                      await Provider.of<MilestoneHandlerProvider>(
+                                              listContext,
+                                              listen: false)
+                                          .deleteMilestone(index);
+                                      break;
+                                  }
+                                },
+                                optionsList: <Map<String, String>>[
+                                  if (!isCompleted) {"complete": "Complete"},
+                                  {"delete": "Delete"}
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Divider(height: 1, color: Colors.grey.shade300),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  const Icon(Icons.calendar_today,
+                                      size: 16, color: Colors.black54),
+                                  const SizedBox(width: 6),
+                                  Text(formatDateTimeToString(milestone.createdAt),
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.black87)),
+                                ],
+                              ),
+                              Row(
+                                children: <Widget>[
+                                  const Icon(Icons.alarm,
+                                      size: 16, color: Colors.black54),
+                                  const SizedBox(width: 6),
+                                  Text(formatTimeFromDateTime(milestone.reminderTime),
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.black87)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddMilestoneDialog(context),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  void showSearchBar(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Search Milestones'),
+          content: TextField(
+            controller: _searchController,
+            decoration: const InputDecoration(
+              hintText: 'Search by title or category',
+              prefixIcon: Icon(Icons.search),
+            ),
+            onChanged: (String query) {
+              Provider.of<MilestoneHandlerProvider>(dialogContext, listen: false)
+                  .updateSearchQuery(query);
+            },
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                _searchController.clear();
+                Provider.of<MilestoneHandlerProvider>(dialogContext, listen: false)
+                    .updateSearchQuery('');
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Clear'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
             ),
           ],
         );
