@@ -100,7 +100,7 @@ class PopupMenuHelper {
 // -------------------- Utility Functions -----------------
 
 String formatDateTimeToString(DateTime dateTime) {
-  return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+  return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')숙}';
 }
 
 String formatTimeFromDateTime(DateTime dateTime) {
@@ -319,7 +319,7 @@ class _MilestonePlannerScreenState extends State<MilestonePlannerScreen> {
                               Chip(
                                 label: Text(
                                   milestone.category,
-                                  style: const TextStyle(fontSize: 10),
+                                  style: const TextStyle(fontSize: 10, color: Colors.blueGrey), // Improved project text color
                                 ),
                                 avatar: const Icon(Icons.label_outline, size: 14),
                                 visualDensity: VisualDensity.compact,
@@ -434,7 +434,7 @@ class _MilestonePlannerScreenState extends State<MilestonePlannerScreen> {
                               Chip(
                                 label: Text(
                                   milestone.category,
-                                  style: const TextStyle(fontSize: 12),
+                                  style: const TextStyle(fontSize: 12, color: Colors.blueGrey), // Improved project text color
                                 ),
                                 avatar: const Icon(Icons.label_outline,
                                     size: 16),
